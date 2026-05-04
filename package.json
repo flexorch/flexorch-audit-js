@@ -1,0 +1,49 @@
+{
+  "name": "@flexorch/audit",
+  "version": "0.1.0",
+  "description": "Zero-dependency PII + quality + noise audit for LLM datasets (TR/EU/US)",
+  "keywords": [
+    "pii",
+    "privacy",
+    "llm",
+    "dataset",
+    "audit",
+    "tckn",
+    "kvkk",
+    "gdpr"
+  ],
+  "license": "MIT",
+  "author": "FlexOrch",
+  "homepage": "https://github.com/flexorch/flexorch-audit-js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flexorch/flexorch-audit-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/flexorch/flexorch-audit-js/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "test": "node --test tests/*.test.js",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
