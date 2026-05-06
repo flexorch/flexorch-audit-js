@@ -2,6 +2,7 @@
 
 Zero-dependency PII + quality + noise audit for LLM datasets. Answers one question: **is this dataset ready for LLM training?**
 
+- **Quality grade** — A/B/C/D score that signals LLM-readiness at a glance
 - **PII detection** — email, phone (TR + E.164), credit card (Luhn), IP, TCKN, IBAN, SSN, label-prefixed names
 - **Quality metrics** — completeness, average length, duplicate ratio
 - **Noise metrics** — garbage character ratio, encoding health
@@ -10,13 +11,19 @@ Zero-dependency PII + quality + noise audit for LLM datasets. Answers one questi
 
 ```ts
 import { audit, mask } from "@flexorch/audit"
+import { readFileSync } from "fs"
 
+const text = readFileSync("contract.txt", "utf8")
 const result = audit(text, { locale: "tr" })
-// {
-//   pii: [{ type: "email", value: "ali@example.com", start: 8, end: 23 }],
-//   quality: { completeness: 1.0, avg_length: 342, duplicate_ratio: null },
-//   noise: { garbage_ratio: 0.0, encoding_ok: true },
-// }
+
+result.quality_grade   // "A"
+result.quality_score   // 0.91  (0.0–1.0 composite)
+result.pii_summary     // [{ type: "national_id_tr", count: 3 }, { type: "email", count: 1 }]
+
+// Raw findings and metrics — also available:
+result.pii             // [{ type: "email", value: "...", start: 8, end: 23 }]
+result.quality         // { completeness: 1.0, avg_length: 342, duplicate_ratio: null }
+result.noise           // { garbage_ratio: 0.0, encoding_ok: true }
 
 const clean = mask(text, result.pii, { strategy: "redact" })
 // "Contact: [REDACTED_EMAIL]"
@@ -68,6 +75,20 @@ Full type definitions included. No `@types/` package needed.
 import { audit, mask, type AuditResult, type PiiFinding } from "@flexorch/audit"
 ```
 
+## Quality grade
+
+The `quality_grade` (A–D) and `quality_score` (0.0–1.0) are composite signals derived from three dimensions:
+
+| Grade | Score | Meaning |
+|-------|-------|---------|
+| A | ≥ 0.85 | Ready for LLM training or RAG |
+| B | ≥ 0.65 | Usable with minor cleanup |
+| C | ≥ 0.40 | Needs review before use |
+| D | < 0.40 | Not suitable — empty, too short, or high noise |
+
+Score formula: `completeness × (0.4 × noiseScore + 0.4 × lengthScore + 0.2)`
+where `lengthScore = Math.min(charCount / 500, 1.0)` and `noiseScore = Math.max(0, 1 − garbageRatio × 10)`.
+
 ## Quality & noise
 
 `duplicate_ratio` is `null` for single-string input. Compute it across your dataset:
@@ -83,7 +104,7 @@ for (const t of texts) {
 const duplicateRatio = duplicates / texts.length
 ```
 
-## Limitations (v0.1)
+## Limitations (v0.2)
 
 - Free-standing name detection (without a label prefix) requires NLP/NER — not included.
 - `duplicate_ratio` is per-call; aggregate across your dataset manually (see above).

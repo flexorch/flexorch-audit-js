@@ -75,3 +75,49 @@ describe("public API", () => {
     }
   });
 });
+
+// ── New fields: quality_grade, quality_score, pii_summary ────────────────────
+
+describe("quality grade and score", () => {
+  it("quality_grade is A/B/C/D", () => {
+    const r = audit("Hello world");
+    assert.ok(["A", "B", "C", "D"].includes(r.quality_grade));
+  });
+
+  it("quality_score is in [0.0, 1.0]", () => {
+    const r = audit("Hello world");
+    assert.ok(r.quality_score >= 0.0 && r.quality_score <= 1.0);
+  });
+
+  it("empty text → grade D, score 0.0", () => {
+    const r = audit("");
+    assert.equal(r.quality_grade, "D");
+    assert.equal(r.quality_score, 0.0);
+  });
+
+  it("long clean text → grade A", () => {
+    const r = audit("a".repeat(600));
+    assert.equal(r.quality_grade, "A");
+    assert.ok(r.quality_score >= 0.85);
+  });
+});
+
+describe("pii_summary", () => {
+  it("aggregates findings by type with count", () => {
+    const r = audit("Email: a@b.com, c@d.com");
+    const entry = r.pii_summary.find((s) => s.type === "email");
+    assert.ok(entry !== undefined);
+    assert.equal(entry.count, 2);
+  });
+
+  it("empty array when no PII found", () => {
+    const r = audit("Clean text with no personal data.");
+    assert.deepEqual(r.pii_summary, []);
+  });
+
+  it("pii_summary count matches pii array length", () => {
+    const r = audit("a@b.com c@d.com e@f.com");
+    const total = r.pii_summary.reduce((sum, s) => sum + s.count, 0);
+    assert.equal(total, r.pii.length);
+  });
+});
