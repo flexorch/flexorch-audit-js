@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="540" style="font-family:Consolas,'Courier New',monospace;font-size:14px;">
+  <rect width="720" height="540" rx="8" fill="#282a36"/>
+  <rect width="720" height="38" rx="8" fill="#44475a"/>
+  <rect y="34" width="720" height="4" fill="#44475a"/>
+  <circle cx="16" cy="19" r="6" fill="#ff5555"/>
+  <circle cx="36" cy="19" r="6" fill="#f1fa8c"/>
+  <circle cx="56" cy="19" r="6" fill="#50fa7b"/>
+  <text x="360" y="24" text-anchor="middle" fill="#6272a4" font-size="13">@flexorch/audit</text>
+  <text x="24" y="72"><tspan fill="#50fa7b">$ node demo/demo.js</tspan></text>
+  <text x="24" y="116"><tspan fill="#f8f8f2">  Grade  : </tspan><tspan fill="#50fa7b">A</tspan><tspan fill="#6272a4">   (score: 0.86)</tspan></text>
+  <text x="24" y="138"><tspan fill="#f8f8f2">  PII    : </tspan><tspan fill="#8be9fd">4 finding(s)</tspan><tspan fill="#6272a4"></tspan></text>
+  <text x="24" y="160"><tspan fill="#f1fa8c">           email                  ×1</tspan></text>
+  <text x="24" y="182"><tspan fill="#f1fa8c">           iban                   ×1</tspan></text>
+  <text x="24" y="204"><tspan fill="#f1fa8c">           name                   ×1</tspan></text>
+  <text x="24" y="226"><tspan fill="#f1fa8c">           national_id_tr         ×1</tspan></text>
+  <text x="24" y="270"><tspan fill="#8be9fd">  Masked output:</tspan></text>
+  <text x="24" y="292"><tspan fill="#f8f8f2">  Contract #1042  —  Employment Agreement</tspan></text>
+  <text x="24" y="336"><tspan fill="#f8f8f2">  Full Name: </tspan><tspan fill="#ff5555">[REDACTED_NAME]</tspan><tspan fill="#f8f8f2"></tspan></text>
+  <text x="24" y="358"><tspan fill="#f8f8f2">  TC Kimlik: </tspan><tspan fill="#ff5555">[REDACTED_NATIONAL_ID_TR]</tspan><tspan fill="#f8f8f2"></tspan></text>
+  <text x="24" y="380"><tspan fill="#f8f8f2">  E-mail: </tspan><tspan fill="#ff5555">[REDACTED_EMAIL]</tspan><tspan fill="#f8f8f2"></tspan></text>
+  <text x="24" y="402"><tspan fill="#f8f8f2">  IBAN: </tspan><tspan fill="#ff5555">[REDACTED_IBAN]</tspan><tspan fill="#f8f8f2"></tspan></text>
+  <text x="24" y="446"><tspan fill="#f8f8f2">  This agreement governs the employment relationship between</tspan></text>
+  <text x="24" y="468"><tspan fill="#f8f8f2">  Flexorch Technology and the employee named above, including</tspan></text>
+  <text x="24" y="490"><tspan fill="#f8f8f2">  confidentiality obligations and IP assignment clauses.</tspan></text>
+</svg>

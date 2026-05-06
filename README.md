@@ -35,6 +35,8 @@ const clean = mask(text, result.pii, { strategy: "redact" })
 npm install @flexorch/audit
 ```
 
+![demo](assets/demo.svg)
+
 ## Locale support
 
 | `locale` | Active detectors |
