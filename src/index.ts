@@ -35,7 +35,7 @@ import { qualityMetrics, type QualityMetrics } from "./quality.js";
 import { noiseMetrics, type NoiseMetrics } from "./noise.js";
 import { applyMask, type MaskStrategy } from "./mask.js";
 
-export const version = "0.3.0";
+export const version = "0.3.1";
 
 export type QualityGrade = "A" | "B" | "C" | "D";
 
