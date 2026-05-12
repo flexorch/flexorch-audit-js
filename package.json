@@ -1,6 +1,6 @@
 {
   "name": "@flexorch/audit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Zero-dependency PII + quality + noise audit for LLM datasets (TR/EU/US)",
   "keywords": [
     "pii",

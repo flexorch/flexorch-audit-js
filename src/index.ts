@@ -35,7 +35,7 @@ import { qualityMetrics, type QualityMetrics } from "./quality.js";
 import { noiseMetrics, type NoiseMetrics } from "./noise.js";
 import { applyMask, type MaskStrategy } from "./mask.js";
 
-export const version = "0.2.0";
+export const version = "0.3.0";
 
 export type QualityGrade = "A" | "B" | "C" | "D";
 
@@ -47,12 +47,12 @@ export interface PiiSummaryEntry {
 export interface AuditOptions {
   /**
    * Active locale-specific detectors.
-   * - "tr"  — Turkish: TCKN, phone_tr, name  (default)
+   * - "tr"  — Turkish: TCKN, VKN, phone_tr, name  (default)
    * - "us"  — US: SSN, E.164 phone
    * - "eu"  — EU: E.164 phone
    * - "all" — All detectors
    *
-   * Universal detectors (email, iban, credit_card, ip) are always active.
+   * Universal detectors (email, iban, credit_card, ip, ip_v6) are always active.
    */
   locale?: string;
 }
@@ -115,6 +115,48 @@ export function audit(text: string, options: AuditOptions = {}): AuditResult {
     .map(([type, count]) => ({ type, count }));
 
   return { quality_grade, quality_score, pii_summary, pii, quality, noise };
+}
+
+export interface BatchAuditResult {
+  /** One AuditResult per input text, in order. */
+  results: AuditResult[];
+  /** Fraction of texts that are exact duplicates (0.0–1.0). */
+  duplicate_ratio: number;
+  /** PII counts aggregated across all texts. */
+  pii_summary: PiiSummaryEntry[];
+  /** Mean quality_score across all texts. */
+  avg_quality_score: number;
+}
+
+/**
+ * Audit a list of texts and aggregate metrics — including duplicate_ratio.
+ */
+export function auditBatch(texts: string[], options: AuditOptions = {}): BatchAuditResult {
+  if (texts.length === 0) {
+    return { results: [], duplicate_ratio: 0, pii_summary: [], avg_quality_score: 0 };
+  }
+
+  const results = texts.map((t) => audit(t, options));
+
+  const seen = new Set<string>();
+  let dupCount = 0;
+  for (const t of texts) {
+    if (seen.has(t)) dupCount++;
+    else seen.add(t);
+  }
+  const duplicate_ratio = Math.round((dupCount / texts.length) * 10000) / 10000;
+
+  const allPii = results.flatMap((r) => r.pii);
+  const counts = new Map<string, number>();
+  for (const f of allPii) counts.set(f.type, (counts.get(f.type) ?? 0) + 1);
+  const pii_summary: PiiSummaryEntry[] = Array.from(counts.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([type, count]) => ({ type, count }));
+
+  const avg_quality_score =
+    Math.round((results.reduce((sum, r) => sum + r.quality_score, 0) / results.length) * 10000) / 10000;
+
+  return { results, duplicate_ratio, pii_summary, avg_quality_score };
 }
 
 /**

@@ -5,7 +5,7 @@ const EMAIL_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 // E.164 international phone — requires + prefix, 10+ total digits
 const PHONE_INTL_RE = /\+\d{1,3}[\s\-.]?\(?\d{1,4}\)?[\s\-.]?\d{3,4}[\s\-.]?\d{4}\b/g;
 
-// IBAN — ISO 13616 (all countries)
+// IBAN — ISO 13616 (all countries); mod-97 validated below
 const IBAN_RE = /\b[A-Z]{2}\d{2}[0-9A-Z]{11,30}\b/g;
 
 // Credit card — 16 digits with separator groups (Luhn-validated)
@@ -15,11 +15,34 @@ const CC_RE = /\b\d{4}[ \-]\d{4}[ \-]\d{4}[ \-]\d{4}\b/g;
 const IPV4_RE =
   /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
 
+// IPv6 — full, compressed (::), and loopback forms
+const _H = "[0-9a-fA-F]{1,4}";
+const IPV6_RE = new RegExp(
+  `(?<![:\\.\\w])` +
+  `(?:` +
+  `(?:${_H}:){7}${_H}` +                      // full 8 groups
+  `|(?:${_H}:){1,7}:` +                        // trailing :: e.g. 2001:db8::
+  `|::(?:(?:${_H}:){0,6}${_H})?` +             // leading :: e.g. ::1
+  `|(?:${_H}:){1,6}:${_H}` +                   // one :: in middle
+  `|(?:${_H}:){1,5}(?::${_H}){1,2}` +
+  `|(?:${_H}:){1,4}(?::${_H}){1,3}` +
+  `|(?:${_H}:){1,3}(?::${_H}){1,4}` +
+  `|(?:${_H}:){1,2}(?::${_H}){1,5}` +
+  `|${_H}:(?::${_H}){1,6}` +
+  `)` +
+  `(?![:\\.\\w])`,
+  "gi"
+);
+
 // ── Turkish patterns ─────────────────────────────────────────────────────────
 
 const PHONE_TR_RE = /\b(?:\+90|0)?\s*5\d{2}\s*\d{3}\s*\d{2}\s*\d{2}\b/g;
 
+// TCKN — 11 digits, first non-zero, modular arithmetic checksum
 const TCKN_RE = /\b([1-9]\d{10})\b/g;
+
+// VKN — 10 digits, first non-zero, Luhn-variant checksum
+const VKN_RE = /\b([1-9]\d{9})\b/g;
 
 const NAME_PREFIX_TR =
   "(?:Ad[ıi]\\s*(?:Soyad[ıi])?|Soyad[ıi]|İsim|" +
@@ -53,6 +76,22 @@ function validTckn(s: string): boolean {
   return d.slice(0, 10).reduce((a, b) => a + b, 0) % 10 === d[10];
 }
 
+function validVkn(s: string): boolean {
+  // VKN Luhn-variant: weighted sum of first 9 digits, mod-9 reduction, check 10th
+  if (s.length !== 10 || !/^\d+$/.test(s) || s[0] === "0") return false;
+  const d = s.split("").map(Number);
+  let total = 0;
+  for (let i = 0; i < 9; i++) {
+    const x = (d[i] + (9 - i)) % 10;
+    if (x !== 0) {
+      let y = (x * Math.pow(2, 9 - i)) % 9;
+      if (y === 0) y = 9;
+      total += y;
+    }
+  }
+  return (10 - (total % 10)) % 10 === d[9];
+}
+
 function luhn(number: string): boolean {
   // ISO/IEC 7812 Luhn checksum
   const digits = number.replace(/\D/g, "");
@@ -69,14 +108,34 @@ function luhn(number: string): boolean {
   return total % 10 === 0;
 }
 
+function validIban(s: string): boolean {
+  // ISO 7064 mod-97 IBAN checksum — chunk processing avoids float precision issues
+  const rearranged = s.slice(4) + s.slice(0, 4);
+  const numeric = rearranged
+    .toUpperCase()
+    .split("")
+    .map((c) => {
+      const code = c.charCodeAt(0);
+      return code >= 65 && code <= 90 ? String(code - 55) : c;
+    })
+    .join("");
+  let remainder = 0;
+  for (let i = 0; i < numeric.length; i += 9) {
+    const chunk = Number(String(remainder) + numeric.slice(i, i + 9));
+    if (!Number.isFinite(chunk)) return false;
+    remainder = chunk % 97;
+  }
+  return remainder === 1;
+}
+
 // ── Locale registry ───────────────────────────────────────────────────────────
 
 const LOCALE_DETECTORS: Record<string, Set<string>> = {
-  tr: new Set(["national_id_tr", "phone_tr", "name"]),
+  tr: new Set(["national_id_tr", "tax_id_tr", "phone_tr", "name"]),
   us: new Set(["ssn", "phone"]),
   eu: new Set(["phone"]),
 };
-const UNIVERSAL = new Set(["email", "iban", "credit_card", "ip"]);
+const UNIVERSAL = new Set(["email", "iban", "credit_card", "ip", "ip_v6"]);
 
 function activeDetectors(locale: string): Set<string> {
   if (locale === "all") {
@@ -132,7 +191,15 @@ export function detectPii(text: string, locale = "tr"): PiiFinding[] {
     }
   }
 
-  if (active.has("iban")) findings.push(...findAll(IBAN_RE, t, "iban"));
+  if (active.has("iban")) {
+    IBAN_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = IBAN_RE.exec(t)) !== null) {
+      if (validIban(m[0])) {
+        findings.push({ type: "iban", value: m[0], start: m.index, end: m.index + m[0].length });
+      }
+    }
+  }
 
   if (active.has("credit_card")) {
     CC_RE.lastIndex = 0;
@@ -146,6 +213,8 @@ export function detectPii(text: string, locale = "tr"): PiiFinding[] {
 
   if (active.has("ip")) findings.push(...findAll(IPV4_RE, t, "ip"));
 
+  if (active.has("ip_v6")) findings.push(...findAll(IPV6_RE, t, "ip_v6"));
+
   if (active.has("phone_tr")) findings.push(...findAll(PHONE_TR_RE, t, "phone_tr"));
 
   if (active.has("national_id_tr")) {
@@ -154,6 +223,16 @@ export function detectPii(text: string, locale = "tr"): PiiFinding[] {
     while ((m = TCKN_RE.exec(t)) !== null) {
       if (validTckn(m[1])) {
         findings.push({ type: "national_id_tr", value: m[1], start: m.index, end: m.index + m[0].length });
+      }
+    }
+  }
+
+  if (active.has("tax_id_tr")) {
+    VKN_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = VKN_RE.exec(t)) !== null) {
+      if (validVkn(m[1])) {
+        findings.push({ type: "tax_id_tr", value: m[1], start: m.index, end: m.index + m[0].length });
       }
     }
   }
