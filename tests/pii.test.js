@@ -54,13 +54,18 @@ describe("national_id_tr (TCKN)", () => {
 });
 
 describe("iban", () => {
-  it("detects TR IBAN", () => {
-    const f = detectPii("IBAN: TR330006100519786457841326");
-    assert.ok(f.some((x) => x.type === "iban"));
+  it("detects TR IBAN as iban_tr in tr locale", () => {
+    const f = detectPii("IBAN: TR330006100519786457841326", "tr");
+    assert.ok(f.some((x) => x.type === "iban_tr" && x.value === "TR330006100519786457841326"));
   });
 
-  it("detects DE IBAN", () => {
-    const f = detectPii("Bank: DE89370400440532013000");
+  it("generic iban suppressed by iban_tr at same span", () => {
+    const f = detectPii("IBAN: TR330006100519786457841326", "tr");
+    assert.equal(f.filter((x) => x.type === "iban").length, 0);
+  });
+
+  it("detects DE IBAN as generic iban in tr locale", () => {
+    const f = detectPii("Bank: DE89370400440532013000", "tr");
     assert.ok(f.some((x) => x.type === "iban"));
   });
 });
@@ -195,13 +200,13 @@ describe("ip_v6", () => {
 });
 
 describe("iban mod-97", () => {
-  it("accepts valid TR IBAN", () => {
-    const f = detectPii("IBAN: TR330006100519786457841326");
-    assert.ok(f.some((x) => x.type === "iban"));
+  it("accepts valid TR IBAN as iban_tr in tr locale", () => {
+    const f = detectPii("IBAN: TR330006100519786457841326", "tr");
+    assert.ok(f.some((x) => x.type === "iban_tr"));
   });
 
-  it("accepts valid DE IBAN", () => {
-    const f = detectPii("Bank: DE89370400440532013000");
+  it("accepts valid DE IBAN as iban in tr locale", () => {
+    const f = detectPii("Bank: DE89370400440532013000", "tr");
     assert.ok(f.some((x) => x.type === "iban"));
   });
 
@@ -245,5 +250,166 @@ describe("auditBatch", () => {
     const { auditBatch } = await import("../dist/index.js");
     const r = auditBatch(["", "Hello world ".repeat(50)]);
     assert.ok(r.avg_quality_score >= 0 && r.avg_quality_score <= 1);
+  });
+});
+
+describe("phone_intl", () => {
+  it("detects E.164 US number in us locale", () => {
+    const f = detectPii("+1 555 234 5678", "us");
+    assert.ok(f.some((x) => x.type === "phone_intl"));
+  });
+
+  it("detects E.164 UK number in eu locale", () => {
+    const f = detectPii("Call: +44 20 7946 0958", "eu");
+    assert.ok(f.some((x) => x.type === "phone_intl"));
+  });
+
+  it("excludes TR +90 number", () => {
+    const f = detectPii("+90 532 123 45 67", "eu");
+    assert.equal(f.filter((x) => x.type === "phone_intl").length, 0);
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("+1 555 234 5678", "tr");
+    assert.equal(f.filter((x) => x.type === "phone_intl").length, 0);
+  });
+});
+
+describe("iban_tr", () => {
+  it("detects TR IBAN as iban_tr", () => {
+    const f = detectPii("IBAN: TR330006100519786457841326", "tr");
+    assert.ok(f.some((x) => x.type === "iban_tr" && x.value === "TR330006100519786457841326"));
+  });
+
+  it("rejects TR IBAN with bad checksum", () => {
+    const f = detectPii("IBAN: TR330006100519786457841327", "tr");
+    assert.equal(f.filter((x) => x.type === "iban_tr").length, 0);
+  });
+
+  it("not detected in eu locale", () => {
+    const f = detectPii("IBAN: TR330006100519786457841326", "eu");
+    assert.equal(f.filter((x) => x.type === "iban_tr").length, 0);
+  });
+});
+
+describe("iban_intl", () => {
+  it("detects DE IBAN as iban_intl in eu locale", () => {
+    const f = detectPii("Bank: DE89370400440532013000", "eu");
+    assert.ok(f.some((x) => x.type === "iban_intl" && x.value === "DE89370400440532013000"));
+  });
+
+  it("generic iban suppressed by iban_intl at same span", () => {
+    const f = detectPii("Bank: DE89370400440532013000", "eu");
+    assert.equal(f.filter((x) => x.type === "iban").length, 0);
+  });
+
+  it("TR IBAN not matched as iban_intl", () => {
+    const f = detectPii("IBAN: TR330006100519786457841326", "eu");
+    assert.equal(f.filter((x) => x.type === "iban_intl").length, 0);
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("Bank: DE89370400440532013000", "tr");
+    assert.equal(f.filter((x) => x.type === "iban_intl").length, 0);
+  });
+});
+
+describe("company_name_tr", () => {
+  it("detects A.Ş. suffix", () => {
+    const f = detectPii("Şirket: Örnek A.Ş. fatura", "tr");
+    assert.ok(f.some((x) => x.type === "company_name_tr" && x.value.includes("Örnek")));
+  });
+
+  it("detects Ltd. Şti. suffix", () => {
+    const f = detectPii("Acme Ltd. Şti. ile sözleşme", "tr");
+    assert.ok(f.some((x) => x.type === "company_name_tr"));
+  });
+
+  it("not detected in eu locale", () => {
+    const f = detectPii("Örnek A.Ş.", "eu");
+    assert.equal(f.filter((x) => x.type === "company_name_tr").length, 0);
+  });
+});
+
+describe("mersis_no", () => {
+  it("detects 16-digit MERSIS in tr locale", () => {
+    const f = detectPii("MERSIS: 1234567890123456", "tr");
+    assert.ok(f.some((x) => x.type === "mersis_no" && x.value === "1234567890123456"));
+  });
+
+  it("rejects 15-digit number", () => {
+    const f = detectPii("Ref: 123456789012345", "tr");
+    assert.equal(f.filter((x) => x.type === "mersis_no").length, 0);
+  });
+
+  it("not detected in eu locale", () => {
+    const f = detectPii("1234567890123456", "eu");
+    assert.equal(f.filter((x) => x.type === "mersis_no").length, 0);
+  });
+});
+
+describe("postal_code_tr", () => {
+  it("detects İstanbul postal code", () => {
+    const f = detectPii("Adres: Levent 34330 İstanbul", "tr");
+    assert.ok(f.some((x) => x.type === "postal_code_tr" && x.value === "34330"));
+  });
+
+  it("rejects invalid province prefix 00", () => {
+    const f = detectPii("Kod: 00100", "tr");
+    assert.equal(f.filter((x) => x.type === "postal_code_tr").length, 0);
+  });
+
+  it("rejects province prefix 82+", () => {
+    const f = detectPii("Kod: 82000", "tr");
+    assert.equal(f.filter((x) => x.type === "postal_code_tr").length, 0);
+  });
+
+  it("not detected in eu locale", () => {
+    const f = detectPii("34330", "eu");
+    assert.equal(f.filter((x) => x.type === "postal_code_tr").length, 0);
+  });
+});
+
+describe("province_tr", () => {
+  it("detects Ankara", () => {
+    const f = detectPii("İl: Ankara", "tr");
+    assert.ok(f.some((x) => x.type === "province_tr" && x.value === "Ankara"));
+  });
+
+  it("detects İstanbul", () => {
+    const f = detectPii("Şehir: İstanbul", "tr");
+    assert.ok(f.some((x) => x.type === "province_tr" && x.value === "İstanbul"));
+  });
+
+  it("detects Kahramanmaraş (longest name)", () => {
+    const f = detectPii("İl: Kahramanmaraş", "tr");
+    assert.ok(f.some((x) => x.type === "province_tr" && x.value === "Kahramanmaraş"));
+  });
+
+  it("not detected in eu locale", () => {
+    const f = detectPii("Ankara", "eu");
+    assert.equal(f.filter((x) => x.type === "province_tr").length, 0);
+  });
+});
+
+describe("company_name_intl", () => {
+  it("detects GmbH in eu locale", () => {
+    const f = detectPii("Vendor: Volkswagen GmbH contract", "eu");
+    assert.ok(f.some((x) => x.type === "company_name_intl" && x.value.includes("Volkswagen")));
+  });
+
+  it("detects LLC in us locale", () => {
+    const f = detectPii("Acme LLC is the supplier", "us");
+    assert.ok(f.some((x) => x.type === "company_name_intl" && x.value.includes("Acme")));
+  });
+
+  it("detects B.V. suffix", () => {
+    const f = detectPii("ASML B.V. invoice", "eu");
+    assert.ok(f.some((x) => x.type === "company_name_intl"));
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("Volkswagen GmbH", "tr");
+    assert.equal(f.filter((x) => x.type === "company_name_intl").length, 0);
   });
 });
