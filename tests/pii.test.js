@@ -413,3 +413,212 @@ describe("company_name_intl", () => {
     assert.equal(f.filter((x) => x.type === "company_name_intl").length, 0);
   });
 });
+
+// ── S2.1 DE ───────────────────────────────────────────────────────────────────
+describe("tax_id_de", () => {
+  it("detects valid Steuer-IdNr", () => {
+    const f = detectPii("IdNr 47036892816", "de");
+    assert.ok(f.some((x) => x.type === "tax_id_de" && x.value === "47036892816"));
+  });
+
+  it("rejects invalid checksum", () => {
+    const f = detectPii("47036892815", "de");
+    assert.equal(f.filter((x) => x.type === "tax_id_de").length, 0);
+  });
+
+  it("not fired in tr locale", () => {
+    const f = detectPii("47036892816", "tr");
+    assert.equal(f.filter((x) => x.type === "tax_id_de").length, 0);
+  });
+});
+
+describe("social_id_de", () => {
+  it("detects valid SVNR", () => {
+    const f = detectPii("SV-Nr 12800101A0001", "de");
+    assert.ok(f.some((x) => x.type === "social_id_de" && x.value === "12800101A0001"));
+  });
+
+  it("not fired without letter in pattern", () => {
+    const f = detectPii("12800101000001", "de");
+    assert.equal(f.filter((x) => x.type === "social_id_de").length, 0);
+  });
+});
+
+// ── S2.2 FR ───────────────────────────────────────────────────────────────────
+describe("siret_fr", () => {
+  it("detects SIRET with label", () => {
+    const f = detectPii("SIRET: 12345678901234", "fr");
+    assert.ok(f.some((x) => x.type === "siret_fr" && x.value === "12345678901234"));
+  });
+
+  it("standalone 14-digit not detected", () => {
+    const f = detectPii("12345678901234", "fr");
+    assert.equal(f.filter((x) => x.type === "siret_fr").length, 0);
+  });
+});
+
+describe("company_id_fr", () => {
+  it("detects SIREN with label", () => {
+    const f = detectPii("SIREN: 123456789", "fr");
+    assert.ok(f.some((x) => x.type === "company_id_fr" && x.value === "123456789"));
+  });
+});
+
+describe("social_id_fr", () => {
+  it("detects INSEE starting with 1", () => {
+    const f = detectPii("NIR: 195127512345678", "fr");
+    assert.ok(f.some((x) => x.type === "social_id_fr" && x.value === "195127512345678"));
+  });
+
+  it("rejects starting with 3", () => {
+    const f = detectPii("395127512345678", "fr");
+    assert.equal(f.filter((x) => x.type === "social_id_fr").length, 0);
+  });
+});
+
+// ── S2.3 IT ───────────────────────────────────────────────────────────────────
+describe("national_id_it", () => {
+  it("detects Codice Fiscale", () => {
+    const f = detectPii("CF: RSSMRA85M01H501Z", "it");
+    assert.ok(f.some((x) => x.type === "national_id_it" && x.value === "RSSMRA85M01H501Z"));
+  });
+
+  it("uppercases value", () => {
+    const f = detectPii("rssmra85m01h501z", "it");
+    const matches = f.filter((x) => x.type === "national_id_it");
+    assert.equal(matches.length, 1);
+    assert.equal(matches[0].value, "RSSMRA85M01H501Z");
+  });
+
+  it("not fired in eu locale", () => {
+    const f = detectPii("RSSMRA85M01H501Z", "eu");
+    assert.equal(f.filter((x) => x.type === "national_id_it").length, 0);
+  });
+});
+
+describe("tax_id_it", () => {
+  it("detects valid Partita IVA", () => {
+    const f = detectPii("P.IVA 12345678903", "it");
+    assert.ok(f.some((x) => x.type === "tax_id_it" && x.value === "12345678903"));
+  });
+
+  it("rejects wrong checksum", () => {
+    const f = detectPii("12345678900", "it");
+    assert.equal(f.filter((x) => x.type === "tax_id_it").length, 0);
+  });
+});
+
+// ── S2.4 NL ───────────────────────────────────────────────────────────────────
+describe("national_id_nl", () => {
+  it("detects valid BSN", () => {
+    const f = detectPii("BSN: 123456782", "nl");
+    assert.ok(f.some((x) => x.type === "national_id_nl" && x.value === "123456782"));
+  });
+
+  it("rejects invalid 11-check", () => {
+    const f = detectPii("123456780", "nl");
+    assert.equal(f.filter((x) => x.type === "national_id_nl").length, 0);
+  });
+});
+
+describe("company_id_nl", () => {
+  it("detects KvK with label", () => {
+    const f = detectPii("KvK: 12345678", "nl");
+    assert.ok(f.some((x) => x.type === "company_id_nl" && x.value === "12345678"));
+  });
+
+  it("standalone 8 digits not detected", () => {
+    const f = detectPii("12345678", "nl");
+    assert.equal(f.filter((x) => x.type === "company_id_nl").length, 0);
+  });
+});
+
+// ── S2.5 ES ───────────────────────────────────────────────────────────────────
+describe("national_id_es", () => {
+  it("detects valid DNI", () => {
+    const f = detectPii("DNI: 12345678Z", "es");
+    assert.ok(f.some((x) => x.type === "national_id_es" && x.value === "12345678Z"));
+  });
+
+  it("rejects wrong DNI letter", () => {
+    const f = detectPii("12345678A", "es");
+    assert.equal(f.filter((x) => x.type === "national_id_es").length, 0);
+  });
+
+  it("detects valid NIE", () => {
+    const f = detectPii("NIE: X1234567L", "es");
+    assert.ok(f.some((x) => x.type === "national_id_es" && x.value === "X1234567L"));
+  });
+});
+
+describe("tax_id_es", () => {
+  it("detects valid CIF", () => {
+    const f = detectPii("CIF: B12345674", "es");
+    assert.ok(f.some((x) => x.type === "tax_id_es" && x.value === "B12345674"));
+  });
+
+  it("not fired in eu locale", () => {
+    const f = detectPii("B12345674", "eu");
+    assert.equal(f.filter((x) => x.type === "tax_id_es").length, 0);
+  });
+});
+
+// ── S2.6 UK ───────────────────────────────────────────────────────────────────
+describe("social_id_uk", () => {
+  it("detects valid NI number", () => {
+    const f = detectPii("NI: AB123456A", "uk");
+    assert.ok(f.some((x) => x.type === "social_id_uk" && x.value === "AB123456A"));
+  });
+
+  it("rejects forbidden prefix BG", () => {
+    const f = detectPii("BG123456A", "uk");
+    assert.equal(f.filter((x) => x.type === "social_id_uk").length, 0);
+  });
+
+  it("not fired in eu locale", () => {
+    const f = detectPii("AB123456A", "eu");
+    assert.equal(f.filter((x) => x.type === "social_id_uk").length, 0);
+  });
+});
+
+describe("tax_id_uk", () => {
+  it("detects UTR with label", () => {
+    const f = detectPii("UTR: 1234567890", "uk");
+    assert.ok(f.some((x) => x.type === "tax_id_uk" && x.value === "1234567890"));
+  });
+
+  it("standalone 10 digits not detected", () => {
+    const f = detectPii("1234567890", "uk");
+    assert.equal(f.filter((x) => x.type === "tax_id_uk").length, 0);
+  });
+});
+
+// ── S2.7 US ───────────────────────────────────────────────────────────────────
+describe("tax_id_us", () => {
+  it("detects valid EIN", () => {
+    const f = detectPii("EIN: 12-3456789", "us");
+    assert.ok(f.some((x) => x.type === "tax_id_us" && x.value === "12-3456789"));
+  });
+
+  it("rejects invalid prefix 00", () => {
+    const f = detectPii("00-1234567", "us");
+    assert.equal(f.filter((x) => x.type === "tax_id_us").length, 0);
+  });
+
+  it("not fired in eu locale", () => {
+    const f = detectPii("12-3456789", "eu");
+    assert.equal(f.filter((x) => x.type === "tax_id_us").length, 0);
+  });
+});
+
+describe("national_id_us", () => {
+  it("detects valid ITIN", () => {
+    const f = detectPii("ITIN: 900-70-1234", "us");
+    assert.ok(f.some((x) => x.type === "national_id_us" && x.value === "900-70-1234"));
+  });
+
+  it("rejects invalid middle group 60", () => {
+    const f = detectPii("900-60-1234", "us");
+    assert.equal(f.filter((x) => x.type === "national_id_us").length, 0);
+  });
+});

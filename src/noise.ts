@@ -19,6 +19,22 @@ function isGarbage(ch: string): boolean {
   );
 }
 
+const LINE_NOISE_RE = /[@#!~*=]{3,}/;
+
+/**
+ * Fraction of lines that are blank or contain symbol noise (`[@#!~*=]{3+}`).
+ * Mirrors the FlexOrch pipeline quality-step threshold — values above 0.20
+ * indicate a document likely to reduce extraction quality.
+ */
+export function noiseRatio(text: string): number {
+  if (!text) return 0.0;
+  const lines = text.split("\n");
+  const total = lines.length;
+  if (total === 0) return 0.0;
+  const noisy = lines.filter((line) => !line.trim() || LINE_NOISE_RE.test(line)).length;
+  return Math.round((noisy / total) * 10000) / 10000;
+}
+
 export function noiseMetrics(text: string): NoiseMetrics {
   if (!text) return { garbage_ratio: 0.0, encoding_ok: true };
 

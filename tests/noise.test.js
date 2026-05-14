@@ -1,6 +1,35 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { noiseMetrics } from "../dist/index.js";
+import { noiseMetrics, noiseRatio } from "../dist/index.js";
+
+describe("noiseRatio", () => {
+  it("empty string returns 0.0", () => {
+    assert.equal(noiseRatio(""), 0.0);
+  });
+
+  it("clean text returns 0.0", () => {
+    assert.equal(noiseRatio("Hello\nworld\nno noise here"), 0.0);
+  });
+
+  it("blank lines counted as noisy", () => {
+    // "line1", "", "", "line4" — 2 blank out of 4
+    assert.equal(noiseRatio("line1\n\n\nline4"), 0.5);
+  });
+
+  it("symbol noise lines counted", () => {
+    // "normal line", "@@@garbage", "===another", "clean" — 2 noisy of 4
+    assert.equal(noiseRatio("normal line\n@@@garbage\n===another\nclean"), 0.5);
+  });
+
+  it("all clean lines returns 0.0", () => {
+    assert.equal(noiseRatio("clean\nclean\nclean\nclean"), 0.0);
+  });
+
+  it("high noise above 0.20 threshold", () => {
+    const noisy = Array.from({ length: 30 }, () => "@@@").concat(Array.from({ length: 10 }, () => "clean")).join("\n");
+    assert.ok(noiseRatio(noisy) === 0.75);
+  });
+});
 
 describe("noiseMetrics", () => {
   it("clean text", () => {

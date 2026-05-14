@@ -6,11 +6,14 @@
  * import { readFileSync } from "fs"
  *
  * const text = readFileSync("contract.txt", "utf8")
- * const result = audit(text, { locale: "tr" })
+ * const result = audit(text)               // locale defaults to "und" (all detectors)
+ * const result = audit(text, { locale: "tr" })  // Turkish-only detectors
  *
- * result.quality_grade   // "A"
- * result.quality_score   // 0.91
- * result.pii_summary     // [{ type: "national_id_tr", count: 3 }, ...]
+ * result.quality_grade      // "A"
+ * result.quality_score      // 0.91
+ * result.noise_ratio        // 0.03  (line-level noise fraction)
+ * result.detected_language  // "und" (locale passed in — caller controls language)
+ * result.pii_summary        // [{ type: "national_id_tr", count: 3 }, ...]
  *
  * // Raw findings and metrics also available:
  * result.pii             // [{ type, value, start, end }, ...]
@@ -27,15 +30,15 @@ export type { NoiseMetrics } from "./noise.js";
 export type { MaskStrategy } from "./mask.js";
 export { detectPii } from "./pii.js";
 export { qualityMetrics } from "./quality.js";
-export { noiseMetrics } from "./noise.js";
+export { noiseMetrics, noiseRatio } from "./noise.js";
 export { applyMask } from "./mask.js";
 
 import { detectPii, type PiiFinding } from "./pii.js";
 import { qualityMetrics, type QualityMetrics } from "./quality.js";
-import { noiseMetrics, type NoiseMetrics } from "./noise.js";
+import { noiseMetrics, noiseRatio, type NoiseMetrics } from "./noise.js";
 import { applyMask, type MaskStrategy } from "./mask.js";
 
-export const version = "0.3.1";
+export const version = "0.5.0";
 
 export type QualityGrade = "A" | "B" | "C" | "D";
 
@@ -47,10 +50,12 @@ export interface PiiSummaryEntry {
 export interface AuditOptions {
   /**
    * Active locale-specific detectors.
-   * - "tr"  — Turkish: TCKN, VKN, phone_tr, name  (default)
-   * - "us"  — US: SSN, E.164 phone
-   * - "eu"  — EU: E.164 phone
-   * - "all" — All detectors
+   * - "und" — All detectors combined (default; use when language is unknown)
+   * - "all" — Alias for "und"
+   * - "tr"  — Turkish: TCKN, VKN, phone_tr, name, iban_tr, company_name_tr, mersis_no, postal_code_tr, province_tr
+   * - "us"  — US: SSN, EIN, ITIN, E.164 phone, company_name_intl
+   * - "eu"  — EU: E.164 phone, iban_intl, company_name_intl
+   * - "de" / "fr" / "it" / "nl" / "es" / "uk" — country-specific detectors
    *
    * Universal detectors (email, iban, credit_card, ip, ip_v6) are always active.
    */
@@ -68,6 +73,10 @@ export interface AuditResult {
   pii: PiiFinding[];
   quality: QualityMetrics;
   noise: NoiseMetrics;
+  /** Fraction of lines that are blank or contain symbol noise (>0.20 = low quality). */
+  noise_ratio: number;
+  /** The locale value passed to audit() — caller-controlled language selection. */
+  detected_language: string;
 }
 
 export interface MaskOptions {
@@ -96,10 +105,11 @@ function computeQualityGrade(score: number): QualityGrade {
  * Audit *text* for LLM dataset readiness.
  */
 export function audit(text: string, options: AuditOptions = {}): AuditResult {
-  const locale = options.locale ?? "tr";
+  const locale = options.locale ?? "und";
   const pii = detectPii(text, locale);
   const quality = qualityMetrics(text);
   const noise = noiseMetrics(text);
+  const noise_ratio = noiseRatio(text);
 
   const quality_score = computeQualityScore(
     quality.completeness,
@@ -114,7 +124,7 @@ export function audit(text: string, options: AuditOptions = {}): AuditResult {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([type, count]) => ({ type, count }));
 
-  return { quality_grade, quality_score, pii_summary, pii, quality, noise };
+  return { quality_grade, quality_score, pii_summary, pii, quality, noise, noise_ratio, detected_language: locale };
 }
 
 export interface BatchAuditResult {
