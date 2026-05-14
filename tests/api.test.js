@@ -121,3 +121,50 @@ describe("pii_summary", () => {
     assert.equal(total, r.pii.length);
   });
 });
+
+// ── v0.5.0: noise_ratio, detected_language, "und" locale ─────────────────────
+
+describe("v0.5.0 new fields", () => {
+  it("noise_ratio field is present and a number", () => {
+    const r = audit("clean text\nmore text");
+    assert.ok("noise_ratio" in r);
+    assert.ok(typeof r.noise_ratio === "number");
+    assert.ok(r.noise_ratio >= 0.0 && r.noise_ratio <= 1.0);
+  });
+
+  it("noise_ratio is 0.0 for clean text", () => {
+    const r = audit("clean\nclean\nclean");
+    assert.equal(r.noise_ratio, 0.0);
+  });
+
+  it("noise_ratio > 0 for noisy text", () => {
+    const r = audit("clean\n@@@symbol noise\n\nclean");
+    assert.ok(r.noise_ratio > 0.0);
+  });
+
+  it("detected_language reflects locale option", () => {
+    const r = audit("some text", { locale: "tr" });
+    assert.equal(r.detected_language, "tr");
+  });
+
+  it("detected_language defaults to und", () => {
+    const r = audit("some text");
+    assert.equal(r.detected_language, "und");
+  });
+
+  it("und locale activates all detectors", () => {
+    const text = "TC: 12345678950, SSN: 123-45-6789, email: x@y.com";
+    const r = audit(text, { locale: "und" });
+    const types = new Set(r.pii.map((f) => f.type));
+    assert.ok(types.has("national_id_tr"));
+    assert.ok(types.has("ssn"));
+    assert.ok(types.has("email"));
+  });
+
+  it("default locale (und) same as explicit und", () => {
+    const text = "TC: 12345678950, SSN: 123-45-6789";
+    const rDefault = audit(text);
+    const rUnd = audit(text, { locale: "und" });
+    assert.deepEqual(rDefault.pii, rUnd.pii);
+  });
+});
