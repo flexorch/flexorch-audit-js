@@ -168,3 +168,85 @@ describe("v0.5.0 new fields", () => {
     assert.deepEqual(rDefault.pii, rUnd.pii);
   });
 });
+
+// ── v0.6.0: auditStream, complianceReport ────────────────────────────────────
+
+describe("auditStream", () => {
+  it("yields one result per text", async () => {
+    const { auditStream } = await import("../dist/index.js");
+    async function* gen() { yield "Hello world"; yield "a@b.com"; yield ""; }
+    const results = [];
+    for await (const r of auditStream(gen())) results.push(r);
+    assert.equal(results.length, 3);
+  });
+
+  it("each result has expected fields", async () => {
+    const { auditStream } = await import("../dist/index.js");
+    async function* gen() { yield "test text"; }
+    for await (const r of auditStream(gen())) {
+      assert.ok("quality_grade" in r);
+      assert.ok("pii" in r);
+      assert.ok("noise_ratio" in r);
+    }
+  });
+
+  it("empty iterable yields nothing", async () => {
+    const { auditStream } = await import("../dist/index.js");
+    async function* empty() {}
+    const results = [];
+    for await (const r of auditStream(empty())) results.push(r);
+    assert.equal(results.length, 0);
+  });
+
+  it("respects locale option", async () => {
+    const { auditStream } = await import("../dist/index.js");
+    async function* gen() { yield "PESEL: 44051401359"; }
+    for await (const r of auditStream(gen(), { locale: "pl" })) {
+      assert.ok(r.pii.some((f) => f.type === "national_id_pl"));
+    }
+  });
+});
+
+describe("complianceReport", () => {
+  it("no PII → risk_level none", async () => {
+    const { audit, complianceReport } = await import("../dist/index.js");
+    const r = audit("Clean text with no personal data.");
+    const report = complianceReport(r);
+    assert.equal(report.risk_level, "none");
+    assert.equal(report.has_pii, false);
+    assert.equal(report.masking_required, false);
+    assert.ok(report.recommendations.length > 0);
+  });
+
+  it("email → risk_level medium", async () => {
+    const { audit, complianceReport } = await import("../dist/index.js");
+    const r = audit("Contact: ali@example.com");
+    const report = complianceReport(r);
+    assert.equal(report.risk_level, "medium");
+    assert.equal(report.has_pii, true);
+    assert.equal(report.masking_required, true);
+    assert.ok(report.pii_types.includes("email"));
+  });
+
+  it("TCKN → risk_level high", async () => {
+    const { audit, complianceReport } = await import("../dist/index.js");
+    const r = audit("TC: 12345678950", { locale: "tr" });
+    const report = complianceReport(r);
+    assert.equal(report.risk_level, "high");
+    assert.ok(report.pii_types.includes("national_id_tr"));
+  });
+
+  it("credit card → risk_level high", async () => {
+    const { audit, complianceReport } = await import("../dist/index.js");
+    const r = audit("Card: 4532 0151 1283 0366");
+    const report = complianceReport(r);
+    assert.equal(report.risk_level, "high");
+  });
+
+  it("pii_types sorted alphabetically", async () => {
+    const { audit, complianceReport } = await import("../dist/index.js");
+    const r = audit("a@b.com card: 4532 0151 1283 0366");
+    const report = complianceReport(r);
+    assert.deepEqual(report.pii_types, [...report.pii_types].sort());
+  });
+});
