@@ -1,6 +1,6 @@
 {
   "name": "@flexorch/audit",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Zero-dependency PII + quality + noise audit for LLM datasets (TR/EU/US)",
   "keywords": [
     "pii",
@@ -14,7 +14,7 @@
   ],
   "license": "MIT",
   "author": "FlexOrch",
-  "homepage": "https://github.com/flexorch/flexorch-audit-js",
+  "homepage": "https://flexorch.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/flexorch/flexorch-audit-js.git"

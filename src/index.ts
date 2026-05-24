@@ -38,7 +38,7 @@ import { qualityMetrics, type QualityMetrics } from "./quality.js";
 import { noiseMetrics, noiseRatio, type NoiseMetrics } from "./noise.js";
 import { applyMask, type MaskStrategy } from "./mask.js";
 
-export const version = "0.5.1";
+export const version = "0.6.0";
 
 export type QualityGrade = "A" | "B" | "C" | "D";
 
@@ -174,4 +174,85 @@ export function auditBatch(texts: string[], options: AuditOptions = {}): BatchAu
  */
 export function mask(text: string, findings: PiiFinding[], options: MaskOptions = {}): string {
   return applyMask(text, findings, options.strategy ?? "redact");
+}
+
+/**
+ * Async generator that audits texts one at a time from an async iterable.
+ *
+ * Yields one AuditResult per input text. Processing is sequential.
+ *
+ * @example
+ * async function* lines() {
+ *   for (const line of data) yield line;
+ * }
+ * for await (const result of auditStream(lines())) {
+ *   console.log(result.quality_grade, result.pii_summary);
+ * }
+ */
+export async function* auditStream(
+  texts: AsyncIterable<string>,
+  options: AuditOptions = {}
+): AsyncGenerator<AuditResult> {
+  for await (const text of texts) {
+    yield audit(text, options);
+  }
+}
+
+export type RiskLevel = "none" | "low" | "medium" | "high";
+
+export interface ComplianceReport {
+  has_pii: boolean;
+  pii_types: string[];
+  risk_level: RiskLevel;
+  masking_required: boolean;
+  recommendations: string[];
+}
+
+const HIGH_RISK_TYPES = new Set([
+  "national_id_tr", "ssn", "credit_card",
+  "national_id_pl", "national_id_be", "social_id_at",
+  "social_id_de", "social_id_uk", "national_id_it",
+  "national_id_nl", "national_id_es", "national_id_us",
+  "tax_id_tr", "tax_id_de",
+]);
+
+const MEDIUM_RISK_TYPES = new Set([
+  "email", "phone_tr", "phone_intl", "iban", "iban_tr", "iban_intl", "name",
+]);
+
+/**
+ * Generate a KVKK/GDPR compliance summary for an AuditResult.
+ *
+ * This is a technical summary only — not a legal document or regulatory opinion.
+ */
+export function complianceReport(result: AuditResult): ComplianceReport {
+  const types = [...new Set(result.pii.map((f) => f.type))].sort();
+
+  let risk_level: RiskLevel = "none";
+  if (types.length > 0) {
+    if (types.some((t) => HIGH_RISK_TYPES.has(t))) risk_level = "high";
+    else if (types.some((t) => MEDIUM_RISK_TYPES.has(t))) risk_level = "medium";
+    else risk_level = "low";
+  }
+
+  const recommendations: string[] = [];
+  if (risk_level === "high" || risk_level === "medium") {
+    recommendations.push("Apply mask({ strategy: 'redact' }) before storing or sharing this text.");
+  }
+  if (risk_level === "high") {
+    recommendations.push(
+      "Review applicable regulations (KVKK Art. 6, GDPR Art. 9) for special category data handling."
+    );
+  }
+  if (recommendations.length === 0) {
+    recommendations.push("No PII detected — text is safe for LLM processing.");
+  }
+
+  return {
+    has_pii: types.length > 0,
+    pii_types: types,
+    risk_level,
+    masking_required: types.length > 0,
+    recommendations,
+  };
 }

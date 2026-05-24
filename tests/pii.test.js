@@ -622,3 +622,69 @@ describe("national_id_us", () => {
     assert.equal(f.filter((x) => x.type === "national_id_us").length, 0);
   });
 });
+
+describe("national_id_pl (PESEL)", () => {
+  it("detects valid PESEL in pl locale", () => {
+    const f = detectPii("PESEL: 44051401359", "pl");
+    assert.ok(f.some((x) => x.type === "national_id_pl" && x.value === "44051401359"));
+  });
+
+  it("rejects invalid PESEL checksum", () => {
+    const f = detectPii("PESEL: 44051401358", "pl");
+    assert.equal(f.filter((x) => x.type === "national_id_pl").length, 0);
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("PESEL: 44051401359", "tr");
+    assert.equal(f.filter((x) => x.type === "national_id_pl").length, 0);
+  });
+
+  it("detects in und locale", () => {
+    const f = detectPii("PESEL: 44051401359", "und");
+    assert.ok(f.some((x) => x.type === "national_id_pl"));
+  });
+});
+
+describe("social_id_at (SVNr)", () => {
+  it("detects valid Austrian SVNr in at locale", () => {
+    const f = detectPii("SVNr: 1232010180", "at");
+    assert.ok(f.some((x) => x.type === "social_id_at" && x.value === "1232010180"));
+  });
+
+  it("rejects invalid SVNr checksum", () => {
+    const f = detectPii("SVNr: 1233010180", "at");
+    assert.equal(f.filter((x) => x.type === "social_id_at").length, 0);
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("SVNr: 1232010180", "tr");
+    assert.equal(f.filter((x) => x.type === "social_id_at").length, 0);
+  });
+
+  it("detects in und locale", () => {
+    const f = detectPii("SVNr: 1232010180", "und");
+    assert.ok(f.some((x) => x.type === "social_id_at"));
+  });
+});
+
+describe("national_id_be (RRN)", () => {
+  it("detects valid Belgian RRN in be locale", () => {
+    const f = detectPii("RRN: 93010100186", "be");
+    assert.ok(f.some((x) => x.type === "national_id_be" && x.value === "93010100186"));
+  });
+
+  it("rejects invalid RRN checksum", () => {
+    const f = detectPii("RRN: 93010100187", "be");
+    assert.equal(f.filter((x) => x.type === "national_id_be").length, 0);
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("RRN: 93010100186", "tr");
+    assert.equal(f.filter((x) => x.type === "national_id_be").length, 0);
+  });
+
+  it("detects in und locale", () => {
+    const f = detectPii("RRN: 93010100186", "und");
+    assert.ok(f.some((x) => x.type === "national_id_be"));
+  });
+});

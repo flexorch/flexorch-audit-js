@@ -317,6 +317,40 @@ function validEinUs(s: string): boolean {
   return !_EIN_INVALID_PREFIXES.has(s.slice(0, 2));
 }
 
+// ── PL patterns ───────────────────────────────────────────────────────────────
+
+const PESEL_PL_RE = /\b(\d{11})\b/g;
+
+function validPeselPl(s: string): boolean {
+  if (s.length !== 11 || !/^\d+$/.test(s)) return false;
+  const weights = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3];
+  const total = weights.reduce((sum, w, i) => sum + w * parseInt(s[i]), 0);
+  return (10 - total % 10) % 10 === parseInt(s[10]);
+}
+
+// ── AT patterns ───────────────────────────────────────────────────────────────
+
+const SVNR_AT_RE = /\b(\d{10})\b/g;
+
+function validSvnrAt(s: string): boolean {
+  if (s.length !== 10 || !/^\d+$/.test(s)) return false;
+  const weights = [3, 7, 9, 0, 5, 8, 4, 2, 1, 6];
+  const total = weights.reduce((sum, w, i) => sum + w * parseInt(s[i]), 0);
+  return total % 10 === parseInt(s[3]);
+}
+
+// ── BE patterns ───────────────────────────────────────────────────────────────
+
+const NRRNISS_BE_RE = /\b(\d{11})\b/g;
+
+function validNrrnissBe(s: string): boolean {
+  if (s.length !== 11 || !/^\d+$/.test(s)) return false;
+  const body = parseInt(s.slice(0, 9));
+  const check = parseInt(s.slice(9));
+  if ((97 - body % 97) === check) return true;
+  return (97 - (2_000_000_000 + body) % 97) === check;
+}
+
 // ── Locale registry ───────────────────────────────────────────────────────────
 
 const LOCALE_DETECTORS: Record<string, Set<string>> = {
@@ -332,6 +366,9 @@ const LOCALE_DETECTORS: Record<string, Set<string>> = {
   nl: new Set(["national_id_nl", "company_id_nl"]),
   es: new Set(["national_id_es", "tax_id_es"]),
   uk: new Set(["social_id_uk", "tax_id_uk"]),
+  pl: new Set(["national_id_pl"]),
+  at: new Set(["social_id_at"]),
+  be: new Set(["national_id_be"]),
 };
 const UNIVERSAL = new Set(["email", "iban", "credit_card", "ip", "ip_v6"]);
 
@@ -628,6 +665,30 @@ export function detectPii(text: string, locale = "und"): PiiFinding[] {
     let m: RegExpExecArray | null;
     while ((m = COMPANY_NAME_INTL_RE.exec(t)) !== null) {
       findings.push({ type: "company_name_intl", value: m[1], start: m.index, end: m.index + m[1].length });
+    }
+  }
+
+  if (active.has("national_id_pl")) {
+    PESEL_PL_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = PESEL_PL_RE.exec(t)) !== null) {
+      if (validPeselPl(m[1])) findings.push({ type: "national_id_pl", value: m[1], start: m.index, end: m.index + m[1].length });
+    }
+  }
+
+  if (active.has("social_id_at")) {
+    SVNR_AT_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SVNR_AT_RE.exec(t)) !== null) {
+      if (validSvnrAt(m[1])) findings.push({ type: "social_id_at", value: m[1], start: m.index, end: m.index + m[1].length });
+    }
+  }
+
+  if (active.has("national_id_be")) {
+    NRRNISS_BE_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = NRRNISS_BE_RE.exec(t)) !== null) {
+      if (validNrrnissBe(m[1])) findings.push({ type: "national_id_be", value: m[1], start: m.index, end: m.index + m[1].length });
     }
   }
 
