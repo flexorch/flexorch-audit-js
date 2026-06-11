@@ -5,6 +5,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.0] — 2026-06-11
+
+### Added
+
+- **`redactForLlm(text, options)`** — one-shot audit + mask convenience wrapper; returns PII-free text ready for LLM processing in a single call
+- **`estimateTokens(text)`** — word-based token count heuristic (words × 4/3); no external dependencies; accuracy ~15% for planning/cost estimates
+
+---
+
 ## [0.6.0] — 2026-05-24
 
 ### Added

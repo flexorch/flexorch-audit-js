@@ -207,6 +207,73 @@ describe("auditStream", () => {
   });
 });
 
+// ── v0.7.0: redactForLlm, estimateTokens ─────────────────────────────────────
+
+describe("redactForLlm", () => {
+  it("removes PII from text", async () => {
+    const { redactForLlm } = await import("../dist/index.js");
+    const clean = redactForLlm("TCKN: 12345678950, email: ali@example.com", { locale: "tr" });
+    assert.ok(!clean.includes("12345678950"));
+    assert.ok(!clean.includes("ali@example.com"));
+  });
+
+  it("returns original text when no PII found", async () => {
+    const { redactForLlm } = await import("../dist/index.js");
+    const text = "The quick brown fox jumps over the lazy dog.";
+    assert.equal(redactForLlm(text), text);
+  });
+
+  it("empty string returns empty string", async () => {
+    const { redactForLlm } = await import("../dist/index.js");
+    assert.equal(redactForLlm(""), "");
+  });
+
+  it("respects strategy option", async () => {
+    const { redactForLlm } = await import("../dist/index.js");
+    const clean = redactForLlm("Email: hello@example.com", { strategy: "token" });
+    assert.ok(!clean.includes("hello@example.com"));
+    assert.ok(clean.includes("<PII_EMAIL"));
+  });
+
+  it("und locale removes SSN by default", async () => {
+    const { redactForLlm } = await import("../dist/index.js");
+    const clean = redactForLlm("SSN: 123-45-6789");
+    assert.ok(!clean.includes("123-45-6789"));
+  });
+});
+
+describe("estimateTokens", () => {
+  it("empty string returns 0", async () => {
+    const { estimateTokens } = await import("../dist/index.js");
+    assert.equal(estimateTokens(""), 0);
+    assert.equal(estimateTokens("   "), 0);
+  });
+
+  it("single word returns at least 1", async () => {
+    const { estimateTokens } = await import("../dist/index.js");
+    assert.ok(estimateTokens("hello") >= 1);
+  });
+
+  it("longer text returns larger estimate", async () => {
+    const { estimateTokens } = await import("../dist/index.js");
+    const short = estimateTokens("one two three");
+    const long = estimateTokens("one two three ".repeat(10));
+    assert.ok(long > short);
+  });
+
+  it("rough range for short sentence", async () => {
+    const { estimateTokens } = await import("../dist/index.js");
+    const result = estimateTokens("The quick brown fox");
+    assert.ok(result >= 4 && result <= 8);
+  });
+
+  it("returns integer", async () => {
+    const { estimateTokens } = await import("../dist/index.js");
+    assert.equal(typeof estimateTokens("some text"), "number");
+    assert.equal(estimateTokens("some text") % 1, 0);
+  });
+});
+
 describe("complianceReport", () => {
   it("no PII → risk_level none", async () => {
     const { audit, complianceReport } = await import("../dist/index.js");
