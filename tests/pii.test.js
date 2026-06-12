@@ -688,3 +688,110 @@ describe("national_id_be (RRN)", () => {
     assert.ok(f.some((x) => x.type === "national_id_be"));
   });
 });
+
+describe("sgk_no (TR SGK sicil)", () => {
+  it("detects SGK No label in tr locale", () => {
+    const f = detectPii("SGK No: 1234567890", "tr");
+    assert.ok(f.some((x) => x.type === "sgk_no" && x.value === "1234567890"));
+  });
+
+  it("detects SSK No label", () => {
+    const f = detectPii("SSK No: 9876543210", "tr");
+    assert.ok(f.some((x) => x.type === "sgk_no" && x.value === "9876543210"));
+  });
+
+  it("bare number without label not detected", () => {
+    const f = detectPii("1234567890", "tr");
+    assert.equal(f.filter((x) => x.type === "sgk_no").length, 0);
+  });
+
+  it("detects in und locale", () => {
+    const f = detectPii("SGK Sicil No: 1234567890", "und");
+    assert.ok(f.some((x) => x.type === "sgk_no"));
+  });
+});
+
+describe("tax_id_pl (NIP)", () => {
+  it("detects NIP label in pl locale", () => {
+    const f = detectPii("NIP: 1234567890", "pl");
+    assert.ok(f.some((x) => x.type === "tax_id_pl" && x.value === "1234567890"));
+  });
+
+  it("not detected without label", () => {
+    const f = detectPii("1234567890", "pl");
+    assert.equal(f.filter((x) => x.type === "tax_id_pl").length, 0);
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("NIP: 1234567890", "tr");
+    assert.equal(f.filter((x) => x.type === "tax_id_pl").length, 0);
+  });
+});
+
+describe("tax_id_pt (NIF Portugal)", () => {
+  it("detects valid NIF in pt locale", () => {
+    const f = detectPii("NIF: 123456789", "pt");
+    assert.ok(f.some((x) => x.type === "tax_id_pt" && x.value === "123456789"));
+  });
+
+  it("rejects invalid NIF checksum", () => {
+    const f = detectPii("NIF: 123456780", "pt");
+    assert.equal(f.filter((x) => x.type === "tax_id_pt").length, 0);
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("NIF: 123456789", "tr");
+    assert.equal(f.filter((x) => x.type === "tax_id_pt").length, 0);
+  });
+
+  it("detects in und locale", () => {
+    const f = detectPii("Contribuinte: 123456789", "und");
+    assert.ok(f.some((x) => x.type === "tax_id_pt"));
+  });
+});
+
+describe("national_id_se (Personnummer)", () => {
+  it("detects 6-digit date format in sv locale", () => {
+    const f = detectPii("Personnummer: 830101-9801", "sv");
+    assert.ok(f.some((x) => x.type === "national_id_se" && x.value === "830101-9801"));
+  });
+
+  it("detects 8-digit date format", () => {
+    const f = detectPii("19830101-9801", "sv");
+    assert.ok(f.some((x) => x.type === "national_id_se" && x.value === "19830101-9801"));
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("830101-9801", "tr");
+    assert.equal(f.filter((x) => x.type === "national_id_se").length, 0);
+  });
+});
+
+describe("national_id_dk (CPR)", () => {
+  it("detects CPR format in da locale", () => {
+    const f = detectPii("CPR: 150487-1111", "da");
+    assert.ok(f.some((x) => x.type === "national_id_dk" && x.value === "150487-1111"));
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("150487-1111", "tr");
+    assert.equal(f.filter((x) => x.type === "national_id_dk").length, 0);
+  });
+});
+
+describe("national_id_fi (HETU)", () => {
+  it("detects HETU with minus separator in fi locale", () => {
+    const f = detectPii("Henkilötunnus: 010170-960F", "fi");
+    assert.ok(f.some((x) => x.type === "national_id_fi" && x.value === "010170-960F"));
+  });
+
+  it("detects HETU with A separator (2000s birth)", () => {
+    const f = detectPii("010199A960F", "fi");
+    assert.ok(f.some((x) => x.type === "national_id_fi" && x.value === "010199A960F"));
+  });
+
+  it("not detected in tr locale", () => {
+    const f = detectPii("010170-960F", "tr");
+    assert.equal(f.filter((x) => x.type === "national_id_fi").length, 0);
+  });
+});

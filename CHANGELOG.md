@@ -5,6 +5,29 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.8.0] — 2026-06-12
+
+### Added
+
+**New PII detectors (TR SGK + EU PL/PT/SE/DK/FI)**
+
+| Detector | Locale | Field | Algorithm |
+|----------|--------|-------|-----------|
+| `sgk_no` | `tr` | SGK Sicil Numarası | Label-prefix (`SGK No:`, `SSK No:`, `Sigortalı No:`) |
+| `tax_id_pl` | `pl` | NIP (Numer Identyfikacji Podatkowej) | Label-prefix (`NIP:`) |
+| `tax_id_pt` | `pt` | NIF (Número de Identificação Fiscal) | Label-prefix + mod-11 checksum |
+| `national_id_se` | `sv` | Personnummer | Format `YYMMDD[-+]NNNN` or `YYYYMMDD-NNNN` |
+| `national_id_dk` | `da` | CPR (Civil Personal Register) | Format `DDMMYY-XXXX` |
+| `national_id_fi` | `fi` | HETU (Henkilötunnus) | Format `DDMMYY[+\-A]\d{3}[checksum]` |
+
+Also:
+- `tax_id_pl` added to `pl` locale detector set
+- `national_id_be` added to `fr` and `nl` locale detector sets (Belgium is bilingual)
+- `sgk_no` added to `tr` locale detector set
+- 19 new tests across all new locales
+
+---
+
 ## [0.7.0] — 2026-06-11
 
 ### Added

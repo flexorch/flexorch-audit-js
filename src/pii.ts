@@ -67,6 +67,10 @@ const COMPANY_NAME_TR_RE = new RegExp(
 // MERSIS — 16-digit Turkish company registry number, first digit non-zero
 const MERSIS_RE = /\b([1-9]\d{15})\b/g;
 
+// SGK sicil numarası — label-prefixed 10-11 digit number; `u` flag for Turkish ı
+const SGK_RE =
+  /(?:SGK\s*(?:Sicil\s*No(?:su)?|No(?:su)?|Numara(?:s[ıi])?)?|Sigortal[ıi]\s*(?:Sicil\s*)?(?:No|Numara(?:s[ıi])?)|SSK\s*(?:No|Numara(?:s[ıi])?|Sicil))\s*[:#]*\s*(\d{10,11})\b/giu;
+
 // Turkish postal codes — province plate 01-81
 const POSTAL_CODE_TR_RE = /\b((?:0[1-9]|[1-7]\d|80|81)\d{3})\b/g;
 
@@ -320,6 +324,8 @@ function validEinUs(s: string): boolean {
 // ── PL patterns ───────────────────────────────────────────────────────────────
 
 const PESEL_PL_RE = /\b(\d{11})\b/g;
+// NIP — Polish tax ID, 10 digits, label-prefixed
+const NIP_PL_RE = /(?:NIP|Numer\s+NIP|Numer\s+Identyfikacji\s+Podatkowej)\s*[:#]*\s*(\d{10})\b/gi;
 
 function validPeselPl(s: string): boolean {
   if (s.length !== 11 || !/^\d+$/.test(s)) return false;
@@ -327,6 +333,30 @@ function validPeselPl(s: string): boolean {
   const total = weights.reduce((sum, w, i) => sum + w * parseInt(s[i]), 0);
   return (10 - total % 10) % 10 === parseInt(s[10]);
 }
+
+function validNifPt(s: string): boolean {
+  if (s.length !== 9 || !/^\d+$/.test(s) || s[0] === "0") return false;
+  let total = 0;
+  for (let i = 0; i < 8; i++) total += (9 - i) * parseInt(s[i]);
+  const check = (11 - total % 11) % 11;
+  return (check >= 10 ? 0 : check) === parseInt(s[8]);
+}
+
+// ── PT patterns ───────────────────────────────────────────────────────────────
+// NIF — Número de Identificação Fiscal, 9 digits, label-prefixed
+const NIF_PT_RE = /(?:NIF|N[uú]mero\s+de\s+Contribuinte|Contribuinte)\s*[:#]*\s*(\d{9})\b/gi;
+
+// ── SE patterns ───────────────────────────────────────────────────────────────
+// Personnummer: YYMMDD-NNNN or YYYYMMDD-NNNN; + = born 1800s
+const PERSONNUMMER_SE_RE = /\b(\d{6,8}[-+]\d{4})\b/g;
+
+// ── DK patterns ───────────────────────────────────────────────────────────────
+// CPR: DDMMYY-XXXX
+const CPR_DK_RE = /\b(\d{6}-\d{4})\b/g;
+
+// ── FI patterns ───────────────────────────────────────────────────────────────
+// HETU: DDMMYY[+\-A]\d{3}[checksum-char]
+const HETU_FI_RE = /\b(\d{6}[+\-A]\d{3}[0-9A-FHJ-NPR-Y])\b/g;
 
 // ── AT patterns ───────────────────────────────────────────────────────────────
 
@@ -356,17 +386,21 @@ function validNrrnissBe(s: string): boolean {
 const LOCALE_DETECTORS: Record<string, Set<string>> = {
   tr: new Set([
     "national_id_tr", "tax_id_tr", "phone_tr", "name",
-    "iban_tr", "company_name_tr", "mersis_no", "postal_code_tr", "province_tr",
+    "iban_tr", "company_name_tr", "mersis_no", "postal_code_tr", "province_tr", "sgk_no",
   ]),
   us: new Set(["ssn", "tax_id_us", "national_id_us", "phone_intl", "company_name_intl"]),
   eu: new Set(["phone_intl", "iban_intl", "company_name_intl"]),
   de: new Set(["tax_id_de", "social_id_de"]),
-  fr: new Set(["siret_fr", "company_id_fr", "social_id_fr"]),
+  fr: new Set(["siret_fr", "company_id_fr", "social_id_fr", "national_id_be"]),
   it: new Set(["national_id_it", "tax_id_it"]),
-  nl: new Set(["national_id_nl", "company_id_nl"]),
+  nl: new Set(["national_id_nl", "company_id_nl", "national_id_be"]),
   es: new Set(["national_id_es", "tax_id_es"]),
   uk: new Set(["social_id_uk", "tax_id_uk"]),
-  pl: new Set(["national_id_pl"]),
+  pl: new Set(["national_id_pl", "tax_id_pl"]),
+  pt: new Set(["tax_id_pt"]),
+  sv: new Set(["national_id_se"]),
+  da: new Set(["national_id_dk"]),
+  fi: new Set(["national_id_fi"]),
   at: new Set(["social_id_at"]),
   be: new Set(["national_id_be"]),
 };
@@ -504,6 +538,15 @@ export function detectPii(text: string, locale = "und"): PiiFinding[] {
     let m: RegExpExecArray | null;
     while ((m = MERSIS_RE.exec(t)) !== null) {
       findings.push({ type: "mersis_no", value: m[1], start: m.index, end: m.index + m[1].length });
+    }
+  }
+
+  if (active.has("sgk_no")) {
+    SGK_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SGK_RE.exec(t)) !== null) {
+      const start = m.index + m[0].lastIndexOf(m[1]);
+      findings.push({ type: "sgk_no", value: m[1], start, end: start + m[1].length });
     }
   }
 
@@ -673,6 +716,50 @@ export function detectPii(text: string, locale = "und"): PiiFinding[] {
     let m: RegExpExecArray | null;
     while ((m = PESEL_PL_RE.exec(t)) !== null) {
       if (validPeselPl(m[1])) findings.push({ type: "national_id_pl", value: m[1], start: m.index, end: m.index + m[1].length });
+    }
+  }
+
+  if (active.has("tax_id_pl")) {
+    NIP_PL_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = NIP_PL_RE.exec(t)) !== null) {
+      const start = m.index + m[0].lastIndexOf(m[1]);
+      findings.push({ type: "tax_id_pl", value: m[1], start, end: start + m[1].length });
+    }
+  }
+
+  if (active.has("tax_id_pt")) {
+    NIF_PT_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = NIF_PT_RE.exec(t)) !== null) {
+      if (validNifPt(m[1])) {
+        const start = m.index + m[0].lastIndexOf(m[1]);
+        findings.push({ type: "tax_id_pt", value: m[1], start, end: start + m[1].length });
+      }
+    }
+  }
+
+  if (active.has("national_id_se")) {
+    PERSONNUMMER_SE_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = PERSONNUMMER_SE_RE.exec(t)) !== null) {
+      findings.push({ type: "national_id_se", value: m[1], start: m.index, end: m.index + m[1].length });
+    }
+  }
+
+  if (active.has("national_id_dk")) {
+    CPR_DK_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = CPR_DK_RE.exec(t)) !== null) {
+      findings.push({ type: "national_id_dk", value: m[1], start: m.index, end: m.index + m[1].length });
+    }
+  }
+
+  if (active.has("national_id_fi")) {
+    HETU_FI_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = HETU_FI_RE.exec(t)) !== null) {
+      findings.push({ type: "national_id_fi", value: m[1], start: m.index, end: m.index + m[1].length });
     }
   }
 
