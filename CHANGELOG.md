@@ -5,6 +5,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.8.1] — 2026-06-12
+
+### Fixed
+
+- `de` locale now includes `social_id_at` (Austria Sozialversicherungsnummer) — Austrian German documents were only detected when locale was explicitly `at`; now also detected under `de` locale to match Python package behavior
+
+---
+
 ## [0.8.0] — 2026-06-12
 
 ### Added

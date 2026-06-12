@@ -390,7 +390,7 @@ const LOCALE_DETECTORS: Record<string, Set<string>> = {
   ]),
   us: new Set(["ssn", "tax_id_us", "national_id_us", "phone_intl", "company_name_intl"]),
   eu: new Set(["phone_intl", "iban_intl", "company_name_intl"]),
-  de: new Set(["tax_id_de", "social_id_de"]),
+  de: new Set(["tax_id_de", "social_id_de", "social_id_at"]),
   fr: new Set(["siret_fr", "company_id_fr", "social_id_fr", "national_id_be"]),
   it: new Set(["national_id_it", "tax_id_it"]),
   nl: new Set(["national_id_nl", "company_id_nl", "national_id_be"]),
